@@ -12,7 +12,7 @@ LOGLINEPREFIX = 'CRON\[[0-9]+\]: \(.+\) CMD \('
 LOGLINESUFFIX= '\)'
 LOGDATEREGEX = '[A-Z][a-z]{2}\s+[0-9]+\s([0-9]{2}:){2}[0-9]{2}'
 LOGDATEISMISSINGYEAR= True
-FUZZINESS = 120
+FUZZINESS = 300
 LOGPATH = '/var/log/syslog*'
 
 def ok(message):
@@ -88,7 +88,7 @@ def main(args):
         verbose = isVerbose(args)
 	
 	cronEntry = CronTab(cronTime)
-	lastExecution = datetime.now() + timedelta(seconds=cronEntry.previous())
+	lastExecution = datetime.utcnow() + timedelta(seconds=cronEntry.previous())
         verboseOut(verbose, 'theoretical last execution: ' + str(lastExecution))
 	
 	logfile = getLogfile(LOGPATH, lastExecution)
@@ -113,7 +113,7 @@ def main(args):
 		# TODO: handle logfile from 31.12 to 01.01
 		# set missing year
 		lastLogged = lastLogged.replace(year=datetime.fromtimestamp(logfile['mtime']).year)
-        verboseOut(verbose, 'last logged:' + str(lastlogged))
+        verboseOut(verbose, 'last logged:' + str(lastLogged))
 	
 	difference = abs(lastExecution - lastLogged)
         verboseOut(verbose, 'difference:' + str(difference))
