@@ -9,7 +9,7 @@ import re
 import sys
 import gzip
 
-LOGLINEPREFIX = 'CRON\[[0-9]+\]: \(.+\) CMD \('
+LOGLINEPREFIX = 'CRON\[[0-9]+\]: \(.+\) CMD \(\s*'
 LOGLINESUFFIX= '\)'
 LOGDATEREGEX = '[A-Z][a-z]{2}\s+[0-9]+\s([0-9]{2}:){2}[0-9]{2}'
 LOGDATEISMISSINGYEAR= True
