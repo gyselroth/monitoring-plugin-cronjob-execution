@@ -93,7 +93,7 @@ def main(argv):
 
   # Parse cron time spec
   cronEntry = CronTab(cronTime)
-  lastExecution = datetime.utcnow() + timedelta(seconds=cronEntry.previous())
+  lastExecution = datetime.now() + timedelta(seconds=cronEntry.previous())
   verboseOut(options.verbose, 'theoretical last execution: ' + str(lastExecution))
 
   logfile = getLogfile(LOGPATH, lastExecution)
