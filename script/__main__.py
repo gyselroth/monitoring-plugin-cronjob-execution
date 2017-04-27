@@ -10,9 +10,9 @@ import sys
 import gzip
 
 LOGLINEPREFIX = 'CRON\[[0-9]+\]: \(.+\) CMD \(\s*'
-LOGLINESUFFIX= '\)'
+LOGLINESUFFIX = '\)'
 LOGDATEREGEX = '[A-Z][a-z]{2}\s+[0-9]+\s([0-9]{2}:){2}[0-9]{2}'
-LOGDATEISMISSINGYEAR= True
+LOGDATEISMISSINGYEAR = True
 LOGPATH = '/var/log/syslog*'
 CRITICAL = 3600
 WARNING = 1800
@@ -66,12 +66,20 @@ def grepLogfile(logfile, regex):
       foundLine = line
   return foundLine
 
-def parseLogTimestamp(dateRegex, logLine):
+def parseLogTimestamp(dateRegex, logLine, year=None):
   # parse syslog timestamp
   dateStr = re.search(dateRegex, logLine)
   # TODO: if regex failed (dateStr is None)
   # TODO: if parse string fails
-  return datetime.strptime(dateStr.group(0), '%b %d %X')
+  # add year to date from logfile (ugly...)
+  timestamp = datetime.strptime(dateStr.group(0), '%b %d %X')
+  if LOGDATEISMISSINGYEAR:
+    # TODO: handle logfile from 31.12 to 01.01
+    # set missing year
+    if not year:
+        Error("year has to be set")
+    timestamp = timestamp.replace(year=year)
+  return timestamp
 
 def verboseOut(verbose, message):
   if verbose:
@@ -93,32 +101,33 @@ def main(argv):
 
   # Parse cron time spec
   cronEntry = CronTab(cronTime)
-  lastExecution = datetime.now() + timedelta(seconds=cronEntry.previous())
+  now = datetime.now()
+  lastExecution = now + timedelta(seconds=cronEntry.previous(now=now, default_utc=True))
   verboseOut(options.verbose, 'theoretical last execution: ' + str(lastExecution))
 
+  # find logfile
   logfile = getLogfile(LOGPATH, lastExecution)
   verboseOut(options.verbose, 'logfile: ' + logfile['file'] + '; mtime: ' + str(datetime.fromtimestamp(logfile['mtime'])))
 
+  # check found logfile
+  logYear = datetime.fromtimestamp(logfile['mtime']).year if LOGDATEISMISSINGYEAR else None
+  logStart =  parseLogTimestamp(LOGDATEREGEX, getLogfileFirstLine(logfile['file']), year=logYear)
+  verboseOut(options.verbose, 'log start: ' + str(logStart))
   # if oldest logfile is still newer than last execution date (could especially happen for crons with big intervals)
-  if parseLogTimestamp(LOGDATEREGEX, getLogfileFirstLine(logfile['file']))  > lastExecution:
+  if logStart > lastExecution:
     unknown('oldest logfile is newer than last execution date')
   # no logfiles found with LOGPATH
   if logfile is None:
     unknown('no logfile found matching ' + LOGPATH)
 
-  logline = grepLogfile(logfile['file'], LOGLINEPREFIX+cronCmd+LOGLINESUFFIX)
+  logline = grepLogfile(logfile['file'], LOGLINEPREFIX+re.escape(cronCmd)+LOGLINESUFFIX)
   # no matching line found in log
   if logline is None:
     critical('no execution found in ' + logfile['file'])
-    verboseOut(options.verbose, 'logline:' + str(logline))
+  verboseOut(options.verbose, 'logline:' + str(logline))
 
-  lastLogged = parseLogTimestamp(LOGDATEREGEX, logline)
-  # add year to date from logfile (ugly...)
-  if LOGDATEISMISSINGYEAR:
-    # TODO: handle logfile from 31.12 to 01.01
-    # set missing year
-    lastLogged = lastLogged.replace(year=datetime.fromtimestamp(logfile['mtime']).year)
-    verboseOut(options.verbose, 'last logged:' + str(lastLogged))
+  lastLogged = parseLogTimestamp(LOGDATEREGEX, logline, year=logYear)
+  verboseOut(options.verbose, 'last logged:' + str(lastLogged))
 
   difference = abs(lastExecution - lastLogged)
   verboseOut(options.verbose, 'difference:' + str(difference))
