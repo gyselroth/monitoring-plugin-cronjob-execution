@@ -9,9 +9,9 @@ import re
 import sys
 import gzip
 
-LOGLINEPREFIX = 'CRON\[[0-9]+\]: \(.+\) CMD \(\s*'
-LOGLINESUFFIX = '\)'
-LOGDATEREGEX = '[A-Z][a-z]{2}\s+[0-9]+\s([0-9]{2}:){2}[0-9]{2}'
+LOGLINEPREFIX = r'CRON\[[0-9]+\]: \(.+\) CMD \(\s*'
+LOGLINESUFFIX = r'\)'
+LOGDATEREGEX = r'[A-Z][a-z]{2}\s+[0-9]+\s([0-9]{2}:){2}[0-9]{2}'
 LOGDATEISMISSINGYEAR = True
 LOGPATH = '/var/log/syslog*'
 CRITICAL = 3600
@@ -85,6 +85,17 @@ def verboseOut(verbose, message):
   if verbose:
     print(message)
 
+def shellUnescape(string):
+    string = re.sub(r'(?<!\\)\\', r'', string)
+    string = re.sub(r'\\\\', r'\\', string)
+    return string
+
+def cronPercentUnescape(string):
+    return re.sub(r'\\%', r'%', string)
+
+def parseInputCommand(string):
+    return cronPercentUnescape(shellUnescape(string))
+
 def main(argv):
   # Parse options
   usage = "usage: %prog [options] <cron commandline> <cron datedefinition>"
@@ -96,17 +107,24 @@ def main(argv):
   # Parse arguments
   if len(args) < 3:
     unknown('arguments missing: ' + parser.get_usage())
-  cronCmd = args[1]
+  cronCmd = parseInputCommand(args[1])
   cronTime = args[2]
+  verboseOut(options.verbose, 'cron command: ' + str(cronCmd))
 
   # Parse cron time spec
-  cronEntry = CronTab(cronTime)
+  try:
+    cronEntry = CronTab(cronTime)
+  except ValueError as error:
+    unknown('error parsing time specification: ' + str(error))
+
   now = datetime.now()
   lastExecution = now + timedelta(seconds=cronEntry.previous(now=now, default_utc=True))
   verboseOut(options.verbose, 'theoretical last execution: ' + str(lastExecution))
 
   # find logfile
   logfile = getLogfile(LOGPATH, lastExecution)
+  if(logfile is None):
+    unknown('no logfile found for the time in question: ' + str(lastExecution))
   verboseOut(options.verbose, 'logfile: ' + logfile['file'] + '; mtime: ' + str(datetime.fromtimestamp(logfile['mtime'])))
 
   # check found logfile
@@ -123,14 +141,15 @@ def main(argv):
   logline = grepLogfile(logfile['file'], LOGLINEPREFIX+re.escape(cronCmd)+LOGLINESUFFIX)
   # no matching line found in log
   if logline is None:
+    verboseOut(options.verbose, 'regex: ' + LOGLINEPREFIX+re.escape(cronCmd)+LOGLINESUFFIX)
     critical('no execution found in ' + logfile['file'])
-  verboseOut(options.verbose, 'logline:' + str(logline))
+  verboseOut(options.verbose, 'logline: ' + str(logline))
 
   lastLogged = parseLogTimestamp(LOGDATEREGEX, logline, year=logYear)
-  verboseOut(options.verbose, 'last logged:' + str(lastLogged))
+  verboseOut(options.verbose, 'last logged: ' + str(lastLogged))
 
   difference = abs(lastExecution - lastLogged)
-  verboseOut(options.verbose, 'difference:' + str(difference))
+  verboseOut(options.verbose, 'difference: ' + str(difference))
   if difference >= timedelta(seconds=options.criticalThreshold):
     critical('last execution should have been at ' + str(lastExecution) + ', but was at ' + str(lastLogged))
   if difference >= timedelta(seconds=options.warningThreshold):
