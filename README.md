@@ -4,7 +4,7 @@
 Check if the last execution of a given cronjob was at the time it should have been
 
 ### Usage
-Usage: check_cron_lastexecution [options] <cron commandline> <cron datedefinition>
+Usage: check_cron_lastexecution [options] <shell escaped cron command> <cron datedefinition>
 
 Options:
   -h, --help  show this help message and exit
@@ -14,7 +14,7 @@ Options:
 
 ### Example
 ```
-./check_cron_lastexecution "test -x /usr/sbin/anacron || ( cd / && run-parts --report /etc/cron.daily )" "25 6 * * *"
+./check_cron_lastexecution "test\ -x\ /usr/sbin/anacron\ \|\|\ \(\ cd\ /\ \&\&\ run-parts\ --report\ /etc/cron.daily\ \)" "25 6 * * *"
 OK - last execution was at 2017-04-27 06:53:01
 ```
 
