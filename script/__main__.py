@@ -77,7 +77,7 @@ def parseLogTimestamp(dateRegex, logLine, year=None):
     # TODO: handle logfile from 31.12 to 01.01
     # set missing year
     if not year:
-        Error("year has to be set")
+        raise Exception("year has to be set")
     timestamp = timestamp.replace(year=year)
   return timestamp
 
@@ -103,6 +103,7 @@ def main(argv):
   parser.add_option('-c', dest='criticalThreshold', type=int, default=CRITICAL, help='threshold for critical in SECONDS', metavar='SECONDS')
   parser.add_option('-w', dest='warningThreshold', type=int, default=WARNING, help='threshold for warning in SECONDS', metavar='SECONDS')
   parser.add_option('-v', dest='verbose', default=False, help='verbose output', action='store_true')
+  parser.add_option('--too-old-is-ok', dest='tooOldIsOk', default=False, help='return OK (instead of UNKNOWN) if the last execution was before the oldest logfile', action='store_true')
   (options, args) = parser.parse_args(args=argv)
   # Parse arguments
   if len(args) < 3:
@@ -133,7 +134,10 @@ def main(argv):
   verboseOut(options.verbose, 'log start: ' + str(logStart))
   # if oldest logfile is still newer than last execution date (could especially happen for crons with big intervals)
   if logStart > lastExecution:
-    unknown('oldest logfile is newer than last execution date')
+    if options.tooOldIsOk:
+        ok('oldest logfile is newer than last execution date')
+    else:
+        unknown('oldest logfile is newer than last execution date')
   # no logfiles found with LOGPATH
   if logfile is None:
     unknown('no logfile found matching ' + LOGPATH)
