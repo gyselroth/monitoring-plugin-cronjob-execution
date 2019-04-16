@@ -4,6 +4,7 @@
 Check if the last execution of a given cronjob was at the time it should have been
 
 ### Usage
+```
 Usage: check_cron_lastexecution [options] <shell escaped cron command> <cron datedefinition>
 
 Options:
@@ -11,6 +12,7 @@ Options:
   -c SECONDS  threshold for critical in SECONDS [Default: 3600]
   -w SECONDS  threshold for warning in SECONDS [Default: 1800]
   -v          verbose output
+```
 
 ### Example
 ```
@@ -24,7 +26,7 @@ OK - last execution was at 2017-04-27 06:53:01
 ./build.sh
 ```
 
-### Install 
+### Install
 * Copy check_cron_lastexecution to all your servers
 * This check is required to run on the checked host itself therefore you need to remotely excute this check via nrpe, ssh or something similar.
 * create a service/exec in your monitoring engine to execute the remote check
